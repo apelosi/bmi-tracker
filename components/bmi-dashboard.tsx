@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, BarChart3, TableIcon } from "lucide-react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import BMIEntryModal from "./bmi-entry-modal"
 import EmptyState from "./empty-state"
 import { deleteBMIEntry } from "@/lib/actions"
@@ -278,28 +278,30 @@ export default function BMIDashboard({ entries, user }: BMIDashboardProps) {
                 </div>
               </div>
             ) : (
-              <div style={{ width: "100%", height: "300px", backgroundColor: "#f9f9f9" }}>
-                <LineChart width={600} height={300} data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                  <XAxis dataKey="date" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip
-                    formatter={(value: any) => {
-                      if (chartMetric === "weight") {
-                        const dataPoint = chartData.find((d) => d[chartMetric] === value)
-                        return [dataPoint?.weightDisplay || value, `Weight (${units.weight})`]
-                      }
-                      return [value, "BMI"]
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey={chartMetric}
-                    stroke={chartMetric === "bmi" ? "#22c55e" : "#3b82f6"}
-                    strokeWidth={3}
-                    dot={{ fill: chartMetric === "bmi" ? "#22c55e" : "#3b82f6", r: 5 }}
-                  />
-                </LineChart>
+              <div className="w-full h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                    <XAxis dataKey="date" stroke="#666" />
+                    <YAxis stroke="#666" />
+                    <Tooltip
+                      formatter={(value: any) => {
+                        if (chartMetric === "weight") {
+                          const dataPoint = chartData.find((d) => d[chartMetric] === value)
+                          return [dataPoint?.weightDisplay || value, `Weight (${units.weight})`]
+                        }
+                        return [value, "BMI"]
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={chartMetric}
+                      stroke={chartMetric === "bmi" ? "#22c55e" : "#3b82f6"}
+                      strokeWidth={3}
+                      dot={{ fill: chartMetric === "bmi" ? "#22c55e" : "#3b82f6", r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             )}
           </CardContent>
