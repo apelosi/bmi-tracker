@@ -78,9 +78,10 @@ export default function BMIDashboard({ entries, user }: BMIDashboardProps) {
 
   const units = getUnitLabels(user.system_of_measurement)
 
-  // Prepare chart data
+  // Prepare chart data - simplified and more robust
   const chartData = useMemo(() => {
     if (!entries || entries.length === 0) {
+      console.log("No entries for chart")
       return []
     }
 
@@ -115,8 +116,15 @@ export default function BMIDashboard({ entries, user }: BMIDashboardProps) {
         return dataPoint
       })
 
+    console.log("Processed chart data:", processedData)
     return processedData
   }, [entries, user.system_of_measurement, units.weight])
+
+  // Test data to verify chart is working
+  const testData = [
+    { date: "Day 1", bmi: 24.8, weight: 173 },
+    { date: "Day 2", bmi: 24.4, weight: 170 },
+  ]
 
   if (entries.length === 0) {
     return (
@@ -262,71 +270,71 @@ export default function BMIDashboard({ entries, user }: BMIDashboardProps) {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>{chartMetric === "bmi" ? "BMI" : "Weight"} Trend</CardTitle>
+            <CardTitle>
+              {chartMetric === "bmi" ? "BMI" : "Weight"} Trend
+              <span className="text-sm font-normal text-gray-500 ml-2">({chartData.length} entries)</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {chartData.length < 2 ? (
-              <div className="h-64 flex items-center justify-center text-gray-500 border-2 border-dashed border-gray-200 rounded">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>Add more entries to see your trend chart</p>
-                  {chartData.length === 1 && (
-                    <p className="text-xs mt-2">
-                      Current: {chartMetric === "bmi" ? `${chartData[0].bmi} BMI` : chartData[0].weightDisplay}
-                    </p>
-                  )}
+            <div className="space-y-4">
+              {/* Debug info */}
+              <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                <p>Chart Data Length: {chartData.length}</p>
+                <p>Chart Metric: {chartMetric}</p>
+                <p>Data: {JSON.stringify(chartData.slice(0, 2))}</p>
+              </div>
+
+              {/* Test Chart - Simple version */}
+              <div className="border border-gray-200 rounded p-4">
+                <h4 className="text-sm font-medium mb-2">Test Chart (Fixed Data)</h4>
+                <div style={{ width: "100%", height: "200px", backgroundColor: "#f9f9f9" }}>
+                  <LineChart width={600} height={200} data={testData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="bmi" stroke="#8884d8" strokeWidth={2} />
+                  </LineChart>
                 </div>
               </div>
-            ) : (
-              <div className="w-full overflow-x-auto">
-                <LineChart
-                  width={800}
-                  height={400}
-                  data={chartData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                  <XAxis dataKey="date" stroke="#666" fontSize={12} />
-                  <YAxis stroke="#666" fontSize={12} domain={["dataMin - 2", "dataMax + 2"]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #ccc",
-                      borderRadius: "6px",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(value: any) => {
-                      if (chartMetric === "weight") {
-                        const dataPoint = chartData.find((d) => d[chartMetric] === value)
-                        return [dataPoint?.weightDisplay || value, `Weight (${units.weight})`]
-                      }
-                      return [value, "BMI"]
-                    }}
-                    labelFormatter={(label: string) => {
-                      const dataPoint = chartData.find((d) => d.date === label)
-                      return dataPoint?.fullDate || label
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey={chartMetric}
-                    stroke={chartMetric === "bmi" ? "#22c55e" : "#3b82f6"}
-                    strokeWidth={3}
-                    dot={{
-                      fill: chartMetric === "bmi" ? "#22c55e" : "#3b82f6",
-                      strokeWidth: 2,
-                      r: 6,
-                    }}
-                    activeDot={{
-                      r: 8,
-                      stroke: chartMetric === "bmi" ? "#22c55e" : "#3b82f6",
-                      strokeWidth: 2,
-                      fill: "white",
-                    }}
-                  />
-                </LineChart>
+
+              {/* Actual Chart */}
+              <div className="border border-gray-200 rounded p-4">
+                <h4 className="text-sm font-medium mb-2">Your Data Chart</h4>
+                {chartData.length < 2 ? (
+                  <div className="h-64 flex items-center justify-center text-gray-500 border-2 border-dashed border-gray-200 rounded">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>Need at least 2 entries for chart</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ width: "100%", height: "300px", backgroundColor: "#f9f9f9" }}>
+                    <LineChart width={600} height={300} data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                      <XAxis dataKey="date" stroke="#666" />
+                      <YAxis stroke="#666" />
+                      <Tooltip
+                        formatter={(value: any) => {
+                          if (chartMetric === "weight") {
+                            const dataPoint = chartData.find((d) => d[chartMetric] === value)
+                            return [dataPoint?.weightDisplay || value, `Weight (${units.weight})`]
+                          }
+                          return [value, "BMI"]
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey={chartMetric}
+                        stroke={chartMetric === "bmi" ? "#22c55e" : "#3b82f6"}
+                        strokeWidth={3}
+                        dot={{ fill: chartMetric === "bmi" ? "#22c55e" : "#3b82f6", r: 5 }}
+                      />
+                    </LineChart>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       )}
