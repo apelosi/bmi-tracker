@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, BarChart3, TableIcon } from "lucide-react"
-import { ChartTooltip } from "@/components/ui/chart"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import BMIEntryModal from "./bmi-entry-modal"
 import EmptyState from "./empty-state"
 import { deleteBMIEntry } from "@/lib/actions"
@@ -79,58 +78,53 @@ export default function BMIDashboard({ entries, user }: BMIDashboardProps) {
 
   const units = getUnitLabels(user.system_of_measurement)
 
-  // Prepare chart data
+  // Prepare chart data - simplified and more robust
   const chartData = useMemo(() => {
-    const data = entries
+    if (!entries || entries.length === 0) {
+      console.log("No entries for chart")
+      return []
+    }
+
+    const processedData = entries
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .map((entry, index) => {
-        try {
-          // Handle date parsing more robustly
-          const date = new Date(entry.created_at)
-          const displayWeight = convertWeightFromMetric(entry.weight, user.system_of_measurement)
+        const date = new Date(entry.created_at)
+        const displayWeight = convertWeightFromMetric(entry.weight, user.system_of_measurement)
 
-          // Convert weight to a single number for charting
-          let weightValue: number
-          if (typeof displayWeight === "number") {
-            weightValue = displayWeight
-          } else {
-            // Convert stones and pounds to total pounds for charting
-            weightValue = displayWeight.stones * 14 + displayWeight.pounds
-          }
-
-          const dataPoint = {
-            date: format(date, "MMM dd"),
-            fullDate: format(date, "MMM dd, yyyy"),
-            bmi: Number(entry.bmi.toFixed(1)),
-            weight: Number(weightValue.toFixed(1)),
-            weightDisplay:
-              typeof displayWeight === "number"
-                ? `${displayWeight.toFixed(1)} ${units.weight}`
-                : `${displayWeight.stones}st ${displayWeight.pounds}lbs`,
-          }
-
-          return dataPoint
-        } catch (error) {
-          console.error("Error processing entry:", entry, error)
-          return null
+        // Convert weight to single number for chart
+        let weightForChart: number
+        if (typeof displayWeight === "number") {
+          weightForChart = Math.round(displayWeight * 10) / 10
+        } else {
+          // For UK system, convert stones+pounds to just pounds for chart
+          weightForChart = Math.round((displayWeight.stones * 14 + displayWeight.pounds) * 10) / 10
         }
-      })
-      .filter(Boolean)
-      .reverse() // Show oldest to newest
 
-    console.log("Chart data prepared:", data)
-    return data
+        const dataPoint = {
+          index: index + 1,
+          date: format(date, "MMM d"),
+          fullDate: format(date, "MMM d, yyyy"),
+          bmi: Math.round(entry.bmi * 10) / 10,
+          weight: weightForChart,
+          originalWeight: entry.weight,
+          weightDisplay:
+            typeof displayWeight === "number"
+              ? `${displayWeight.toFixed(1)} ${units.weight}`
+              : `${displayWeight.stones}st ${displayWeight.pounds}lbs`,
+        }
+
+        return dataPoint
+      })
+
+    console.log("Processed chart data:", processedData)
+    return processedData
   }, [entries, user.system_of_measurement, units.weight])
 
-  const chartConfig = {
-    bmi: {
-      label: "BMI",
-      color: "hsl(142, 76%, 36%)",
-    },
-    weight: {
-      label: `Weight (${units.weight})`,
-      color: "hsl(221, 83%, 53%)",
-    },
-  }
+  // Test data to verify chart is working
+  const testData = [
+    { date: "Day 1", bmi: 24.8, weight: 173 },
+    { date: "Day 2", bmi: 24.4, weight: 170 },
+  ]
 
   if (entries.length === 0) {
     return (
@@ -276,56 +270,71 @@ export default function BMIDashboard({ entries, user }: BMIDashboardProps) {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>{chartMetric === "bmi" ? "BMI" : "Weight"} Trend</CardTitle>
+            <CardTitle>
+              {chartMetric === "bmi" ? "BMI" : "Weight"} Trend
+              <span className="text-sm font-normal text-gray-500 ml-2">({chartData.length} entries)</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {chartData.length < 2 ? (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                📊 Add more entries to see your trend chart
+            <div className="space-y-4">
+              {/* Debug info */}
+              <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                <p>Chart Data Length: {chartData.length}</p>
+                <p>Chart Metric: {chartMetric}</p>
+                <p>Data: {JSON.stringify(chartData.slice(0, 2))}</p>
               </div>
-            ) : (
-              <div className="w-full h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartData}
-                    margin={{
-                      top: 20,
-                      right: 30,
-                      left: 20,
-                      bottom: 20,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="date" stroke="#666" fontSize={12} />
-                    <YAxis stroke="#666" fontSize={12} />
-                    <ChartTooltip
-                      content={({ active, payload, label }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload
-                          return (
-                            <div className="bg-white p-3 border rounded shadow-lg">
-                              <p className="font-medium">{data.fullDate}</p>
-                              <p className="text-sm">
-                                {chartMetric === "bmi" ? `BMI: ${data.bmi}` : `Weight: ${data.weightDisplay}`}
-                              </p>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey={chartMetric}
-                      stroke={chartConfig[chartMetric].color}
-                      strokeWidth={3}
-                      dot={{ fill: chartConfig[chartMetric].color, strokeWidth: 2, r: 5 }}
-                      activeDot={{ r: 7, stroke: chartConfig[chartMetric].color, strokeWidth: 2 }}
-                    />
+
+              {/* Test Chart - Simple version */}
+              <div className="border border-gray-200 rounded p-4">
+                <h4 className="text-sm font-medium mb-2">Test Chart (Fixed Data)</h4>
+                <div style={{ width: "100%", height: "200px", backgroundColor: "#f9f9f9" }}>
+                  <LineChart width={600} height={200} data={testData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="bmi" stroke="#8884d8" strokeWidth={2} />
                   </LineChart>
-                </ResponsiveContainer>
+                </div>
               </div>
-            )}
+
+              {/* Actual Chart */}
+              <div className="border border-gray-200 rounded p-4">
+                <h4 className="text-sm font-medium mb-2">Your Data Chart</h4>
+                {chartData.length < 2 ? (
+                  <div className="h-64 flex items-center justify-center text-gray-500 border-2 border-dashed border-gray-200 rounded">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>Need at least 2 entries for chart</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ width: "100%", height: "300px", backgroundColor: "#f9f9f9" }}>
+                    <LineChart width={600} height={300} data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                      <XAxis dataKey="date" stroke="#666" />
+                      <YAxis stroke="#666" />
+                      <Tooltip
+                        formatter={(value: any) => {
+                          if (chartMetric === "weight") {
+                            const dataPoint = chartData.find((d) => d[chartMetric] === value)
+                            return [dataPoint?.weightDisplay || value, `Weight (${units.weight})`]
+                          }
+                          return [value, "BMI"]
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey={chartMetric}
+                        stroke={chartMetric === "bmi" ? "#22c55e" : "#3b82f6"}
+                        strokeWidth={3}
+                        dot={{ fill: chartMetric === "bmi" ? "#22c55e" : "#3b82f6", r: 5 }}
+                      />
+                    </LineChart>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
