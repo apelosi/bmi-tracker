@@ -14,7 +14,7 @@ Any changes you make to your deployed app will be automatically pushed to this r
 
 Your project is live at:
 
-**[https://vercel.com/tonypelosi-projects/v0-supabase-community-starter-as](https://vercel.com/tonypelosi-projects/v0-supabase-community-starter-as)**
+**[https://bmi-tracker-prod.vercel.app](https://bmi-tracker-prod.vercel.app)**
 
 ## Build your app
 
